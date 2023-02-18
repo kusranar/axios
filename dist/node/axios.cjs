@@ -4,7 +4,7 @@
 const FormData$1 = require('form-data');
 const url = require('url');
 const proxyFromEnv = require('proxy-from-env');
-const http = require('http');
+require('http');
 const https = require('https');
 const util = require('util');
 const followRedirects = require('follow-redirects');
@@ -16,7 +16,6 @@ function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'defau
 
 const FormData__default = /*#__PURE__*/_interopDefaultLegacy(FormData$1);
 const url__default = /*#__PURE__*/_interopDefaultLegacy(url);
-const http__default = /*#__PURE__*/_interopDefaultLegacy(http);
 const https__default = /*#__PURE__*/_interopDefaultLegacy(https);
 const util__default = /*#__PURE__*/_interopDefaultLegacy(util);
 const followRedirects__default = /*#__PURE__*/_interopDefaultLegacy(followRedirects);
@@ -2420,22 +2419,22 @@ const ZlibHeaderTransformStream$1 = ZlibHeaderTransformStream;
 
 const zlibOptions = {
   flush: zlib__default["default"].constants.Z_SYNC_FLUSH,
-  finishFlush: zlib__default["default"].constants.Z_SYNC_FLUSH
+  finishFlush: zlib__default["default"].constants.Z_SYNC_FLUSH,
 };
 
 const brotliOptions = {
   flush: zlib__default["default"].constants.BROTLI_OPERATION_FLUSH,
-  finishFlush: zlib__default["default"].constants.BROTLI_OPERATION_FLUSH
+  finishFlush: zlib__default["default"].constants.BROTLI_OPERATION_FLUSH,
 };
 
 const isBrotliSupported = utils.isFunction(zlib__default["default"].createBrotliDecompress);
 
-const {http: httpFollow, https: httpsFollow} = followRedirects__default["default"];
+const { http: httpFollow, https: httpsFollow } = followRedirects__default["default"];
 
 const isHttps = /https:?/;
 
-const supportedProtocols = platform.protocols.map(protocol => {
-  return protocol + ':';
+const supportedProtocols = platform.protocols.map((protocol) => {
+  return protocol + ":";
 });
 
 /**
@@ -2475,21 +2474,21 @@ function setProxy(options, configProxy, location) {
   if (proxy) {
     // Basic proxy authorization
     if (proxy.username) {
-      proxy.auth = (proxy.username || '') + ':' + (proxy.password || '');
+      proxy.auth = (proxy.username || "") + ":" + (proxy.password || "");
     }
 
     if (proxy.auth) {
       // Support proxy auth object form
       if (proxy.auth.username || proxy.auth.password) {
-        proxy.auth = (proxy.auth.username || '') + ':' + (proxy.auth.password || '');
+        proxy.auth =
+          (proxy.auth.username || "") + ":" + (proxy.auth.password || "");
       }
-      const base64 = Buffer
-        .from(proxy.auth, 'utf8')
-        .toString('base64');
-      options.headers['Proxy-Authorization'] = 'Basic ' + base64;
+      const base64 = Buffer.from(proxy.auth, "utf8").toString("base64");
+      options.headers["Proxy-Authorization"] = "Basic " + base64;
     }
 
-    options.headers.host = options.hostname + (options.port ? ':' + options.port : '');
+    options.headers.host =
+      options.hostname + (options.port ? ":" + options.port : "");
     const proxyHost = proxy.hostname || proxy.host;
     options.hostname = proxyHost;
     // Replace 'host' since options is not a URL object
@@ -2497,7 +2496,9 @@ function setProxy(options, configProxy, location) {
     options.port = proxy.port;
     options.path = location;
     if (proxy.protocol) {
-      options.protocol = proxy.protocol.includes(':') ? proxy.protocol : `${proxy.protocol}:`;
+      options.protocol = proxy.protocol.includes(":")
+        ? proxy.protocol
+        : `${proxy.protocol}:`;
     }
   }
 
@@ -2508,530 +2509,603 @@ function setProxy(options, configProxy, location) {
   };
 }
 
-const isHttpAdapterSupported = typeof process !== 'undefined' && utils.kindOf(process) === 'process';
+const isHttpAdapterSupported =
+  typeof process !== "undefined" && utils.kindOf(process) === "process";
 
 /*eslint consistent-return:0*/
-const httpAdapter = isHttpAdapterSupported && function httpAdapter(config) {
-  /*eslint no-async-promise-executor:0*/
-  return new Promise(async function dispatchHttpRequest(resolvePromise, rejectPromise) {
-    let data = config.data;
-    const responseType = config.responseType;
-    const responseEncoding = config.responseEncoding;
-    const method = config.method.toUpperCase();
-    let isFinished;
-    let isDone;
-    let rejected = false;
-    let req;
+const httpAdapter = isHttpAdapterSupported &&
+  function httpAdapter(config) {
+    /*eslint no-async-promise-executor:0*/
+    return new Promise(async function dispatchHttpRequest(
+      resolvePromise,
+      rejectPromise
+    ) {
+      let data = config.data;
+      const responseType = config.responseType;
+      const responseEncoding = config.responseEncoding;
+      const method = config.method.toUpperCase();
+      let isFinished;
+      let isDone;
+      let rejected = false;
+      let req;
 
-    // temporary internal emitter until the AxiosRequest class will be implemented
-    const emitter = new EventEmitter__default["default"]();
+      // temporary internal emitter until the AxiosRequest class will be implemented
+      const emitter = new EventEmitter__default["default"]();
 
-    function onFinished() {
-      if (isFinished) return;
-      isFinished = true;
+      function onFinished() {
+        if (isFinished) return;
+        isFinished = true;
 
-      if (config.cancelToken) {
-        config.cancelToken.unsubscribe(abort);
-      }
-
-      if (config.signal) {
-        config.signal.removeEventListener('abort', abort);
-      }
-
-      emitter.removeAllListeners();
-    }
-
-    function done(value, isRejected) {
-      if (isDone) return;
-
-      isDone = true;
-
-      if (isRejected) {
-        rejected = true;
-        onFinished();
-      }
-
-      isRejected ? rejectPromise(value) : resolvePromise(value);
-    }
-
-    const resolve = function resolve(value) {
-      done(value);
-    };
-
-    const reject = function reject(value) {
-      done(value, true);
-    };
-
-    function abort(reason) {
-      emitter.emit('abort', !reason || reason.type ? new CanceledError(null, config, req) : reason);
-    }
-
-    emitter.once('abort', reject);
-
-    if (config.cancelToken || config.signal) {
-      config.cancelToken && config.cancelToken.subscribe(abort);
-      if (config.signal) {
-        config.signal.aborted ? abort() : config.signal.addEventListener('abort', abort);
-      }
-    }
-
-    // Parse url
-    const fullPath = buildFullPath(config.baseURL, config.url);
-    const parsed = new URL(fullPath, 'http://localhost');
-    const protocol = parsed.protocol || supportedProtocols[0];
-
-    if (protocol === 'data:') {
-      let convertedData;
-
-      if (method !== 'GET') {
-        return settle(resolve, reject, {
-          status: 405,
-          statusText: 'method not allowed',
-          headers: {},
-          config
-        });
-      }
-
-      try {
-        convertedData = fromDataURI(config.url, responseType === 'blob', {
-          Blob: config.env && config.env.Blob
-        });
-      } catch (err) {
-        throw AxiosError.from(err, AxiosError.ERR_BAD_REQUEST, config);
-      }
-
-      if (responseType === 'text') {
-        convertedData = convertedData.toString(responseEncoding);
-
-        if (!responseEncoding || responseEncoding === 'utf8') {
-          convertedData = utils.stripBOM(convertedData);
-        }
-      } else if (responseType === 'stream') {
-        convertedData = stream__default["default"].Readable.from(convertedData);
-      }
-
-      return settle(resolve, reject, {
-        data: convertedData,
-        status: 200,
-        statusText: 'OK',
-        headers: new AxiosHeaders$1(),
-        config
-      });
-    }
-
-    if (supportedProtocols.indexOf(protocol) === -1) {
-      return reject(new AxiosError(
-        'Unsupported protocol ' + protocol,
-        AxiosError.ERR_BAD_REQUEST,
-        config
-      ));
-    }
-
-    const headers = AxiosHeaders$1.from(config.headers).normalize();
-
-    // Set User-Agent (required by some servers)
-    // See https://github.com/axios/axios/issues/69
-    // User-Agent is specified; handle case where no UA header is desired
-    // Only set header if it hasn't been set in config
-    headers.set('User-Agent', 'axios/' + VERSION, false);
-
-    const onDownloadProgress = config.onDownloadProgress;
-    const onUploadProgress = config.onUploadProgress;
-    const maxRate = config.maxRate;
-    let maxUploadRate = undefined;
-    let maxDownloadRate = undefined;
-
-    // support for spec compliant FormData objects
-    if (utils.isSpecCompliantForm(data)) {
-      const userBoundary = headers.getContentType(/boundary=([-_\w\d]{10,70})/i);
-
-      data = formDataToStream$1(data, (formHeaders) => {
-        headers.set(formHeaders);
-      }, {
-        tag: `axios-${VERSION}-boundary`,
-        boundary: userBoundary && userBoundary[1] || undefined
-      });
-      // support for https://www.npmjs.com/package/form-data api
-    } else if (utils.isFormData(data) && utils.isFunction(data.getHeaders)) {
-      headers.set(data.getHeaders());
-
-      if (!headers.hasContentLength()) {
-        try {
-          const knownLength = await util__default["default"].promisify(data.getLength).call(data);
-          headers.setContentLength(knownLength);
-          /*eslint no-empty:0*/
-        } catch (e) {
-        }
-      }
-    } else if (utils.isBlob(data)) {
-      data.size && headers.setContentType(data.type || 'application/octet-stream');
-      headers.setContentLength(data.size || 0);
-      data = stream__default["default"].Readable.from(readBlob$1(data));
-    } else if (data && !utils.isStream(data)) {
-      if (Buffer.isBuffer(data)) ; else if (utils.isArrayBuffer(data)) {
-        data = Buffer.from(new Uint8Array(data));
-      } else if (utils.isString(data)) {
-        data = Buffer.from(data, 'utf-8');
-      } else {
-        return reject(new AxiosError(
-          'Data after transformation must be a string, an ArrayBuffer, a Buffer, or a Stream',
-          AxiosError.ERR_BAD_REQUEST,
-          config
-        ));
-      }
-
-      // Add Content-Length header if data exists
-      headers.setContentLength(data.length, false);
-
-      if (config.maxBodyLength > -1 && data.length > config.maxBodyLength) {
-        return reject(new AxiosError(
-          'Request body larger than maxBodyLength limit',
-          AxiosError.ERR_BAD_REQUEST,
-          config
-        ));
-      }
-    }
-
-    const contentLength = utils.toFiniteNumber(headers.getContentLength());
-
-    if (utils.isArray(maxRate)) {
-      maxUploadRate = maxRate[0];
-      maxDownloadRate = maxRate[1];
-    } else {
-      maxUploadRate = maxDownloadRate = maxRate;
-    }
-
-    if (data && (onUploadProgress || maxUploadRate)) {
-      if (!utils.isStream(data)) {
-        data = stream__default["default"].Readable.from(data, {objectMode: false});
-      }
-
-      data = stream__default["default"].pipeline([data, new AxiosTransformStream$1({
-        length: contentLength,
-        maxRate: utils.toFiniteNumber(maxUploadRate)
-      })], utils.noop);
-
-      onUploadProgress && data.on('progress', progress => {
-        onUploadProgress(Object.assign(progress, {
-          upload: true
-        }));
-      });
-    }
-
-    // HTTP basic authentication
-    let auth = undefined;
-    if (config.auth) {
-      const username = config.auth.username || '';
-      const password = config.auth.password || '';
-      auth = username + ':' + password;
-    }
-
-    if (!auth && parsed.username) {
-      const urlUsername = parsed.username;
-      const urlPassword = parsed.password;
-      auth = urlUsername + ':' + urlPassword;
-    }
-
-    auth && headers.delete('authorization');
-
-    let path;
-
-    try {
-      path = buildURL(
-        parsed.pathname + parsed.search,
-        config.params,
-        config.paramsSerializer
-      ).replace(/^\?/, '');
-    } catch (err) {
-      const customErr = new Error(err.message);
-      customErr.config = config;
-      customErr.url = config.url;
-      customErr.exists = true;
-      return reject(customErr);
-    }
-
-    headers.set(
-      'Accept-Encoding',
-      'gzip, compress, deflate' + (isBrotliSupported ? ', br' : ''), false
-      );
-
-    const options = {
-      path,
-      method: method,
-      headers: headers.toJSON(),
-      agents: { http: config.httpAgent, https: config.httpsAgent },
-      auth,
-      protocol,
-      beforeRedirect: dispatchBeforeRedirect,
-      beforeRedirects: {}
-    };
-
-    if (config.socketPath) {
-      options.socketPath = config.socketPath;
-    } else {
-      options.hostname = parsed.hostname;
-      options.port = parsed.port;
-      setProxy(options, config.proxy, protocol + '//' + parsed.hostname + (parsed.port ? ':' + parsed.port : '') + options.path);
-    }
-
-    let transport;
-    const isHttpsRequest = isHttps.test(options.protocol);
-    options.agent = isHttpsRequest ? config.httpsAgent : config.httpAgent;
-    if (config.transport) {
-      transport = config.transport;
-    } else if (config.maxRedirects === 0) {
-      transport = isHttpsRequest ? https__default["default"] : http__default["default"];
-    } else {
-      if (config.maxRedirects) {
-        options.maxRedirects = config.maxRedirects;
-      }
-      if (config.beforeRedirect) {
-        options.beforeRedirects.config = config.beforeRedirect;
-      }
-      transport = isHttpsRequest ? httpsFollow : httpFollow;
-    }
-
-    if (config.maxBodyLength > -1) {
-      options.maxBodyLength = config.maxBodyLength;
-    } else {
-      // follow-redirects does not skip comparison, so it should always succeed for axios -1 unlimited
-      options.maxBodyLength = Infinity;
-    }
-
-    if (config.insecureHTTPParser) {
-      options.insecureHTTPParser = config.insecureHTTPParser;
-    }
-
-    // Create the request
-    req = transport.request(options, function handleResponse(res) {
-      if (req.destroyed) return;
-
-      const streams = [res];
-
-      const responseLength = +res.headers['content-length'];
-
-      if (onDownloadProgress) {
-        const transformStream = new AxiosTransformStream$1({
-          length: utils.toFiniteNumber(responseLength),
-          maxRate: utils.toFiniteNumber(maxDownloadRate)
-        });
-
-        onDownloadProgress && transformStream.on('progress', progress => {
-          onDownloadProgress(Object.assign(progress, {
-            download: true
-          }));
-        });
-
-        streams.push(transformStream);
-      }
-
-      // decompress the response body transparently if required
-      let responseStream = res;
-
-      // return the last request in case of redirects
-      const lastRequest = res.req || req;
-
-      // if decompress disabled we should not decompress
-      if (config.decompress !== false && res.headers['content-encoding']) {
-        // if no content, but headers still say that it is encoded,
-        // remove the header not confuse downstream operations
-        if (method === 'HEAD' || res.statusCode === 204) {
-          delete res.headers['content-encoding'];
+        if (config.cancelToken) {
+          config.cancelToken.unsubscribe(abort);
         }
 
-        switch (res.headers['content-encoding']) {
-        /*eslint default-case:0*/
-        case 'gzip':
-        case 'x-gzip':
-        case 'compress':
-        case 'x-compress':
-          // add the unzipper to the body stream processing pipeline
-          streams.push(zlib__default["default"].createUnzip(zlibOptions));
-
-          // remove the content-encoding in order to not confuse downstream operations
-          delete res.headers['content-encoding'];
-          break;
-        case 'deflate':
-          streams.push(new ZlibHeaderTransformStream$1());
-
-          // add the unzipper to the body stream processing pipeline
-          streams.push(zlib__default["default"].createUnzip(zlibOptions));
-
-          // remove the content-encoding in order to not confuse downstream operations
-          delete res.headers['content-encoding'];
-          break;
-        case 'br':
-          if (isBrotliSupported) {
-            streams.push(zlib__default["default"].createBrotliDecompress(brotliOptions));
-            delete res.headers['content-encoding'];
-          }
+        if (config.signal) {
+          config.signal.removeEventListener("abort", abort);
         }
+
+        emitter.removeAllListeners();
       }
 
-      responseStream = streams.length > 1 ? stream__default["default"].pipeline(streams, utils.noop) : streams[0];
+      function done(value, isRejected) {
+        if (isDone) return;
 
-      const offListeners = stream__default["default"].finished(responseStream, () => {
-        offListeners();
-        onFinished();
-      });
+        isDone = true;
 
-      const response = {
-        status: res.statusCode,
-        statusText: res.statusMessage,
-        headers: new AxiosHeaders$1(res.headers),
-        config,
-        request: lastRequest
+        if (isRejected) {
+          rejected = true;
+          onFinished();
+        }
+
+        isRejected ? rejectPromise(value) : resolvePromise(value);
+      }
+
+      const resolve = function resolve(value) {
+        done(value);
       };
 
-      if (responseType === 'stream') {
-        response.data = responseStream;
-        settle(resolve, reject, response);
-      } else {
-        const responseBuffer = [];
-        let totalResponseBytes = 0;
+      const reject = function reject(value) {
+        done(value, true);
+      };
 
-        responseStream.on('data', function handleStreamData(chunk) {
-          responseBuffer.push(chunk);
-          totalResponseBytes += chunk.length;
+      function abort(reason) {
+        emitter.emit(
+          "abort",
+          !reason || reason.type ? new CanceledError(null, config, req) : reason
+        );
+      }
 
-          // make sure the content length is not over the maxContentLength if specified
-          if (config.maxContentLength > -1 && totalResponseBytes > config.maxContentLength) {
-            // stream.destroy() emit aborted event before calling reject() on Node.js v16
-            rejected = true;
-            responseStream.destroy();
-            reject(new AxiosError('maxContentLength size of ' + config.maxContentLength + ' exceeded',
-              AxiosError.ERR_BAD_RESPONSE, config, lastRequest));
-          }
-        });
+      emitter.once("abort", reject);
 
-        responseStream.on('aborted', function handlerStreamAborted() {
-          if (rejected) {
-            return;
-          }
+      if (config.cancelToken || config.signal) {
+        config.cancelToken && config.cancelToken.subscribe(abort);
+        if (config.signal) {
+          config.signal.aborted
+            ? abort()
+            : config.signal.addEventListener("abort", abort);
+        }
+      }
 
-          const err = new AxiosError(
-            'maxContentLength size of ' + config.maxContentLength + ' exceeded',
-            AxiosError.ERR_BAD_RESPONSE,
+      // Parse url
+      const fullPath = buildFullPath(config.baseURL, config.url);
+      const parsed = new URL(fullPath, "http://localhost");
+      const protocol = parsed.protocol || supportedProtocols[0];
+
+      if (protocol === "data:") {
+        let convertedData;
+
+        if (method !== "GET") {
+          return settle(resolve, reject, {
+            status: 405,
+            statusText: "method not allowed",
+            headers: {},
             config,
-            lastRequest
-          );
-          responseStream.destroy(err);
-          reject(err);
-        });
+          });
+        }
 
-        responseStream.on('error', function handleStreamError(err) {
-          if (req.destroyed) return;
-          reject(AxiosError.from(err, null, config, lastRequest));
-        });
+        try {
+          convertedData = fromDataURI(config.url, responseType === "blob", {
+            Blob: config.env && config.env.Blob,
+          });
+        } catch (err) {
+          throw AxiosError.from(err, AxiosError.ERR_BAD_REQUEST, config);
+        }
 
-        responseStream.on('end', function handleStreamEnd() {
-          try {
-            let responseData = responseBuffer.length === 1 ? responseBuffer[0] : Buffer.concat(responseBuffer);
-            if (responseType !== 'arraybuffer') {
-              responseData = responseData.toString(responseEncoding);
-              if (!responseEncoding || responseEncoding === 'utf8') {
-                responseData = utils.stripBOM(responseData);
-              }
-            }
-            response.data = responseData;
-          } catch (err) {
-            reject(AxiosError.from(err, null, config, response.request, response));
+        if (responseType === "text") {
+          convertedData = convertedData.toString(responseEncoding);
+
+          if (!responseEncoding || responseEncoding === "utf8") {
+            convertedData = utils.stripBOM(convertedData);
           }
-          settle(resolve, reject, response);
+        } else if (responseType === "stream") {
+          convertedData = stream__default["default"].Readable.from(convertedData);
+        }
+
+        return settle(resolve, reject, {
+          data: convertedData,
+          status: 200,
+          statusText: "OK",
+          headers: new AxiosHeaders$1(),
+          config,
         });
       }
 
-      emitter.once('abort', err => {
-        if (!responseStream.destroyed) {
-          responseStream.emit('error', err);
-          responseStream.destroy();
-        }
-      });
-    });
-
-    emitter.once('abort', err => {
-      reject(err);
-      req.destroy(err);
-    });
-
-    // Handle errors
-    req.on('error', function handleRequestError(err) {
-      // @todo remove
-      // if (req.aborted && err.code !== AxiosError.ERR_FR_TOO_MANY_REDIRECTS) return;
-      reject(AxiosError.from(err, null, config, req));
-    });
-
-    // set tcp keep alive to prevent drop connection by peer
-    req.on('socket', function handleRequestSocket(socket) {
-      // default interval of sending ack packet is 1 minute
-      socket.setKeepAlive(true, 1000 * 60);
-    });
-
-    // Handle request timeout
-    if (config.timeout) {
-      // This is forcing a int timeout to avoid problems if the `req` interface doesn't handle other types.
-      const timeout = parseInt(config.timeout, 10);
-
-      if (isNaN(timeout)) {
-        reject(new AxiosError(
-          'error trying to parse `config.timeout` to int',
-          AxiosError.ERR_BAD_OPTION_VALUE,
-          config,
-          req
-        ));
-
-        return;
+      if (supportedProtocols.indexOf(protocol) === -1) {
+        return reject(
+          new AxiosError(
+            "Unsupported protocol " + protocol,
+            AxiosError.ERR_BAD_REQUEST,
+            config
+          )
+        );
       }
 
-      // Sometime, the response will be very slow, and does not respond, the connect event will be block by event loop system.
-      // And timer callback will be fired, and abort() will be invoked before connection, then get "socket hang up" and code ECONNRESET.
-      // At this time, if we have a large number of request, nodejs will hang up some socket on background. and the number will up and up.
-      // And then these socket which be hang up will devouring CPU little by little.
-      // ClientRequest.setTimeout will be fired on the specify milliseconds, and can make sure that abort() will be fired after connect.
-      req.setTimeout(timeout, function handleRequestTimeout() {
-        if (isDone) return;
-        let timeoutErrorMessage = config.timeout ? 'timeout of ' + config.timeout + 'ms exceeded' : 'timeout exceeded';
-        const transitional = config.transitional || transitionalDefaults;
-        if (config.timeoutErrorMessage) {
-          timeoutErrorMessage = config.timeoutErrorMessage;
+      const headers = AxiosHeaders$1.from(config.headers).normalize();
+
+      // Set User-Agent (required by some servers)
+      // See https://github.com/axios/axios/issues/69
+      // User-Agent is specified; handle case where no UA header is desired
+      // Only set header if it hasn't been set in config
+      headers.set("User-Agent", "axios/" + VERSION, false);
+
+      const onDownloadProgress = config.onDownloadProgress;
+      const onUploadProgress = config.onUploadProgress;
+      const maxRate = config.maxRate;
+      let maxUploadRate = undefined;
+      let maxDownloadRate = undefined;
+
+      // support for spec compliant FormData objects
+      if (utils.isSpecCompliantForm(data)) {
+        const userBoundary = headers.getContentType(
+          /boundary=([-_\w\d]{10,70})/i
+        );
+
+        data = formDataToStream$1(
+          data,
+          (formHeaders) => {
+            headers.set(formHeaders);
+          },
+          {
+            tag: `axios-${VERSION}-boundary`,
+            boundary: (userBoundary && userBoundary[1]) || undefined,
+          }
+        );
+        // support for https://www.npmjs.com/package/form-data api
+      } else if (utils.isFormData(data) && utils.isFunction(data.getHeaders)) {
+        headers.set(data.getHeaders());
+
+        if (!headers.hasContentLength()) {
+          try {
+            const knownLength = await util__default["default"].promisify(data.getLength).call(data);
+            headers.setContentLength(knownLength);
+            /*eslint no-empty:0*/
+          } catch (e) {}
         }
-        reject(new AxiosError(
-          timeoutErrorMessage,
-          transitional.clarifyTimeoutError ? AxiosError.ETIMEDOUT : AxiosError.ECONNABORTED,
+      } else if (utils.isBlob(data)) {
+        data.size &&
+          headers.setContentType(data.type || "application/octet-stream");
+        headers.setContentLength(data.size || 0);
+        data = stream__default["default"].Readable.from(readBlob$1(data));
+      } else if (data && !utils.isStream(data)) {
+        if (Buffer.isBuffer(data)) ; else if (utils.isArrayBuffer(data)) {
+          data = Buffer.from(new Uint8Array(data));
+        } else if (utils.isString(data)) {
+          data = Buffer.from(data, "utf-8");
+        } else {
+          return reject(
+            new AxiosError(
+              "Data after transformation must be a string, an ArrayBuffer, a Buffer, or a Stream",
+              AxiosError.ERR_BAD_REQUEST,
+              config
+            )
+          );
+        }
+
+        // Add Content-Length header if data exists
+        headers.setContentLength(data.length, false);
+
+        if (config.maxBodyLength > -1 && data.length > config.maxBodyLength) {
+          return reject(
+            new AxiosError(
+              "Request body larger than maxBodyLength limit",
+              AxiosError.ERR_BAD_REQUEST,
+              config
+            )
+          );
+        }
+      }
+
+      const contentLength = utils.toFiniteNumber(headers.getContentLength());
+
+      if (utils.isArray(maxRate)) {
+        maxUploadRate = maxRate[0];
+        maxDownloadRate = maxRate[1];
+      } else {
+        maxUploadRate = maxDownloadRate = maxRate;
+      }
+
+      if (data && (onUploadProgress || maxUploadRate)) {
+        if (!utils.isStream(data)) {
+          data = stream__default["default"].Readable.from(data, { objectMode: false });
+        }
+
+        data = stream__default["default"].pipeline(
+          [
+            data,
+            new AxiosTransformStream$1({
+              length: contentLength,
+              maxRate: utils.toFiniteNumber(maxUploadRate),
+            }),
+          ],
+          utils.noop
+        );
+
+        onUploadProgress &&
+          data.on("progress", (progress) => {
+            onUploadProgress(
+              Object.assign(progress, {
+                upload: true,
+              })
+            );
+          });
+      }
+
+      // HTTP basic authentication
+      let auth = undefined;
+      if (config.auth) {
+        const username = config.auth.username || "";
+        const password = config.auth.password || "";
+        auth = username + ":" + password;
+      }
+
+      if (!auth && parsed.username) {
+        const urlUsername = parsed.username;
+        const urlPassword = parsed.password;
+        auth = urlUsername + ":" + urlPassword;
+      }
+
+      auth && headers.delete("authorization");
+
+      let path;
+
+      try {
+        path = buildURL(
+          parsed.pathname + parsed.search,
+          config.params,
+          config.paramsSerializer
+        ).replace(/^\?/, "");
+      } catch (err) {
+        const customErr = new Error(err.message);
+        customErr.config = config;
+        customErr.url = config.url;
+        customErr.exists = true;
+        return reject(customErr);
+      }
+
+      headers.set(
+        "Accept-Encoding",
+        "gzip, compress, deflate" + (isBrotliSupported ? ", br" : ""),
+        false
+      );
+
+      const options = {
+        path,
+        method: method,
+        headers: headers.toJSON(),
+        agents: { http: config.httpAgent, https: config.httpsAgent },
+        auth,
+        protocol,
+        beforeRedirect: dispatchBeforeRedirect,
+        beforeRedirects: {},
+      };
+
+      if (config.socketPath) {
+        options.socketPath = config.socketPath;
+      } else {
+        options.hostname = parsed.hostname;
+        options.port = parsed.port;
+        setProxy(
+          options,
+          config.proxy,
+          protocol +
+            "//" +
+            parsed.hostname +
+            (parsed.port ? ":" + parsed.port : "") +
+            options.path
+        );
+      }
+
+      let transport;
+      isHttps.test(options.protocol);
+      options.agent = config.httpsAgent;
+      if (config.transport) {
+        transport = config.transport;
+      } else if (config.maxRedirects === 0) {
+        transport = https__default["default"];
+      } else {
+        if (config.maxRedirects) {
+          options.maxRedirects = config.maxRedirects;
+        }
+        if (config.beforeRedirect) {
+          options.beforeRedirects.config = config.beforeRedirect;
+        }
+        transport = httpsFollow;
+      }
+
+      if (config.maxBodyLength > -1) {
+        options.maxBodyLength = config.maxBodyLength;
+      } else {
+        // follow-redirects does not skip comparison, so it should always succeed for axios -1 unlimited
+        options.maxBodyLength = Infinity;
+      }
+
+      if (config.insecureHTTPParser) {
+        options.insecureHTTPParser = config.insecureHTTPParser;
+      }
+
+      // Create the request
+      req = transport.request(options, function handleResponse(res) {
+        if (req.destroyed) return;
+
+        const streams = [res];
+
+        const responseLength = +res.headers["content-length"];
+
+        if (onDownloadProgress) {
+          const transformStream = new AxiosTransformStream$1({
+            length: utils.toFiniteNumber(responseLength),
+            maxRate: utils.toFiniteNumber(maxDownloadRate),
+          });
+
+          onDownloadProgress &&
+            transformStream.on("progress", (progress) => {
+              onDownloadProgress(
+                Object.assign(progress, {
+                  download: true,
+                })
+              );
+            });
+
+          streams.push(transformStream);
+        }
+
+        // decompress the response body transparently if required
+        let responseStream = res;
+
+        // return the last request in case of redirects
+        const lastRequest = res.req || req;
+
+        // if decompress disabled we should not decompress
+        if (config.decompress !== false && res.headers["content-encoding"]) {
+          // if no content, but headers still say that it is encoded,
+          // remove the header not confuse downstream operations
+          if (method === "HEAD" || res.statusCode === 204) {
+            delete res.headers["content-encoding"];
+          }
+
+          switch (res.headers["content-encoding"]) {
+            /*eslint default-case:0*/
+            case "gzip":
+            case "x-gzip":
+            case "compress":
+            case "x-compress":
+              // add the unzipper to the body stream processing pipeline
+              streams.push(zlib__default["default"].createUnzip(zlibOptions));
+
+              // remove the content-encoding in order to not confuse downstream operations
+              delete res.headers["content-encoding"];
+              break;
+            case "deflate":
+              streams.push(new ZlibHeaderTransformStream$1());
+
+              // add the unzipper to the body stream processing pipeline
+              streams.push(zlib__default["default"].createUnzip(zlibOptions));
+
+              // remove the content-encoding in order to not confuse downstream operations
+              delete res.headers["content-encoding"];
+              break;
+            case "br":
+              if (isBrotliSupported) {
+                streams.push(zlib__default["default"].createBrotliDecompress(brotliOptions));
+                delete res.headers["content-encoding"];
+              }
+          }
+        }
+
+        responseStream =
+          streams.length > 1
+            ? stream__default["default"].pipeline(streams, utils.noop)
+            : streams[0];
+
+        const offListeners = stream__default["default"].finished(responseStream, () => {
+          offListeners();
+          onFinished();
+        });
+
+        const response = {
+          status: res.statusCode,
+          statusText: res.statusMessage,
+          headers: new AxiosHeaders$1(res.headers),
           config,
-          req
-        ));
-        abort();
+          request: lastRequest,
+        };
+
+        if (responseType === "stream") {
+          response.data = responseStream;
+          settle(resolve, reject, response);
+        } else {
+          const responseBuffer = [];
+          let totalResponseBytes = 0;
+
+          responseStream.on("data", function handleStreamData(chunk) {
+            responseBuffer.push(chunk);
+            totalResponseBytes += chunk.length;
+
+            // make sure the content length is not over the maxContentLength if specified
+            if (
+              config.maxContentLength > -1 &&
+              totalResponseBytes > config.maxContentLength
+            ) {
+              // stream.destroy() emit aborted event before calling reject() on Node.js v16
+              rejected = true;
+              responseStream.destroy();
+              reject(
+                new AxiosError(
+                  "maxContentLength size of " +
+                    config.maxContentLength +
+                    " exceeded",
+                  AxiosError.ERR_BAD_RESPONSE,
+                  config,
+                  lastRequest
+                )
+              );
+            }
+          });
+
+          responseStream.on("aborted", function handlerStreamAborted() {
+            if (rejected) {
+              return;
+            }
+
+            const err = new AxiosError(
+              "maxContentLength size of " +
+                config.maxContentLength +
+                " exceeded",
+              AxiosError.ERR_BAD_RESPONSE,
+              config,
+              lastRequest
+            );
+            responseStream.destroy(err);
+            reject(err);
+          });
+
+          responseStream.on("error", function handleStreamError(err) {
+            if (req.destroyed) return;
+            reject(AxiosError.from(err, null, config, lastRequest));
+          });
+
+          responseStream.on("end", function handleStreamEnd() {
+            try {
+              let responseData =
+                responseBuffer.length === 1
+                  ? responseBuffer[0]
+                  : Buffer.concat(responseBuffer);
+              if (responseType !== "arraybuffer") {
+                responseData = responseData.toString(responseEncoding);
+                if (!responseEncoding || responseEncoding === "utf8") {
+                  responseData = utils.stripBOM(responseData);
+                }
+              }
+              response.data = responseData;
+            } catch (err) {
+              reject(
+                AxiosError.from(err, null, config, response.request, response)
+              );
+            }
+            settle(resolve, reject, response);
+          });
+        }
+
+        emitter.once("abort", (err) => {
+          if (!responseStream.destroyed) {
+            responseStream.emit("error", err);
+            responseStream.destroy();
+          }
+        });
       });
-    }
 
-
-    // Send the request
-    if (utils.isStream(data)) {
-      let ended = false;
-      let errored = false;
-
-      data.on('end', () => {
-        ended = true;
-      });
-
-      data.once('error', err => {
-        errored = true;
+      emitter.once("abort", (err) => {
+        reject(err);
         req.destroy(err);
       });
 
-      data.on('close', () => {
-        if (!ended && !errored) {
-          abort(new CanceledError('Request stream has been aborted', config, req));
-        }
+      // Handle errors
+      req.on("error", function handleRequestError(err) {
+        // @todo remove
+        // if (req.aborted && err.code !== AxiosError.ERR_FR_TOO_MANY_REDIRECTS) return;
+        reject(AxiosError.from(err, null, config, req));
       });
 
-      data.pipe(req);
-    } else {
-      req.end(data);
-    }
-  });
-};
+      // set tcp keep alive to prevent drop connection by peer
+      req.on("socket", function handleRequestSocket(socket) {
+        // default interval of sending ack packet is 1 minute
+        socket.setKeepAlive(true, 1000 * 60);
+      });
+
+      // Handle request timeout
+      if (config.timeout) {
+        // This is forcing a int timeout to avoid problems if the `req` interface doesn't handle other types.
+        const timeout = parseInt(config.timeout, 10);
+
+        if (isNaN(timeout)) {
+          reject(
+            new AxiosError(
+              "error trying to parse `config.timeout` to int",
+              AxiosError.ERR_BAD_OPTION_VALUE,
+              config,
+              req
+            )
+          );
+
+          return;
+        }
+
+        // Sometime, the response will be very slow, and does not respond, the connect event will be block by event loop system.
+        // And timer callback will be fired, and abort() will be invoked before connection, then get "socket hang up" and code ECONNRESET.
+        // At this time, if we have a large number of request, nodejs will hang up some socket on background. and the number will up and up.
+        // And then these socket which be hang up will devouring CPU little by little.
+        // ClientRequest.setTimeout will be fired on the specify milliseconds, and can make sure that abort() will be fired after connect.
+        req.setTimeout(timeout, function handleRequestTimeout() {
+          if (isDone) return;
+          let timeoutErrorMessage = config.timeout
+            ? "timeout of " + config.timeout + "ms exceeded"
+            : "timeout exceeded";
+          const transitional = config.transitional || transitionalDefaults;
+          if (config.timeoutErrorMessage) {
+            timeoutErrorMessage = config.timeoutErrorMessage;
+          }
+          reject(
+            new AxiosError(
+              timeoutErrorMessage,
+              transitional.clarifyTimeoutError
+                ? AxiosError.ETIMEDOUT
+                : AxiosError.ECONNABORTED,
+              config,
+              req
+            )
+          );
+          abort();
+        });
+      }
+
+      // Send the request
+      if (utils.isStream(data)) {
+        let ended = false;
+        let errored = false;
+
+        data.on("end", () => {
+          ended = true;
+        });
+
+        data.once("error", (err) => {
+          errored = true;
+          req.destroy(err);
+        });
+
+        data.on("close", () => {
+          if (!ended && !errored) {
+            abort(
+              new CanceledError("Request stream has been aborted", config, req)
+            );
+          }
+        });
+
+        data.pipe(req);
+      } else {
+        req.end(data);
+      }
+    });
+  };
 
 const cookies = platform.isStandardBrowserEnv ?
 
